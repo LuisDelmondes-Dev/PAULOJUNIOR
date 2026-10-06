@@ -893,7 +893,7 @@ function registerOrder(){
     var body={tipo:'PJ',nome:$('fName').value.trim(),telefone:$('fPhone').value,email:$('fEmail').value.trim(),documento:$('fCnpj').value,items:items,
       pagamento:pay?pay.value:'',troco:(isFinite(tr)&&tr>0)?tr:null,entrega:deliveryText(),ref:$('fRef').value.trim()};
     fetch('https://ozpdmfhahvnkqklumlux.supabase.co/rest/v1/rpc/dminas_registrar_pedido',{method:'POST',keepalive:true,
-      headers:{'apikey':'sb_publishable_zvbYB3s64oYsD6myJULEWA_LL4jVWNu','Content-Type':'application/json'},body:JSON.stringify(body)}).catch(function(){});
+      headers:{'apikey':'sb_publishable_zvbYB3s64oYsD6myJULEWA_LL4jVWNu','Content-Type':'application/json'},body:JSON.stringify({p:body})}).then(function(r){if(!r.ok&&window.console)console.warn('pedido nao registrado no CRM',r.status);}).catch(function(){});
   }catch(e){}
 }
 $('send').addEventListener('click',function(){
