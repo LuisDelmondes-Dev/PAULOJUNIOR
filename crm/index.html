@@ -347,6 +347,7 @@ table.ptbl{width:100%;border-collapse:collapse;font-size:12px}
       <div class="brand"><div class="lgimg logo-top" role="img" aria-label="CRM Paulo Junior"></div></div>
       <div class="acts">
         <div class="who" id="who"><span class="av sm" id="whoAv"></span><span id="whoMail"></span></div>
+        <button class="ibtn bd" id="openGrid" aria-label="Ver todos os leads em grade" title="Ver todos os leads (grade)" aria-pressed="false"><i data-ic="list"></i></button>
         <button class="ibtn bd" id="openProd" aria-label="Produtos e valores de compra" title="Produtos e valores de compra"><i data-ic="box"></i></button>
         <button class="ibtn" id="openGuide" aria-label="Como usar" title="Como usar"><i data-ic="help"></i></button>
         <button class="ibtn" data-theme-toggle aria-label="Alternar tema claro/escuro" title="Alternar tema"></button>
@@ -367,9 +368,9 @@ table.ptbl{width:100%;border-collapse:collapse;font-size:12px}
 
     <div class="toolbar" id="toolbar">
       <div class="search"><i data-ic="search"></i><input class="inp" id="q" type="search" placeholder="Buscar por nome, empresa, telefone ou nota…" aria-label="Buscar"></div>
-      <div class="seg" role="group" aria-label="Modo de exibição">
-        <button type="button" id="vBoard" class="on"><i data-ic="board"></i><span class="hide-sm">Funil</span></button>
-        <button type="button" id="vList"><i data-ic="list"></i><span class="hide-sm">Lista</span></button>
+      <div class="seg" role="group" aria-label="Modo de exibição" hidden>
+        <button type="button" id="vBoard" class="on"><i data-ic="board"></i><span>Funil</span></button>
+        <button type="button" id="vList"><i data-ic="list"></i><span>Todos os leads</span></button>
       </div>
       <select class="sel" id="fOrigem" aria-label="Filtrar por origem"></select>
       <select class="sel" id="fSort" aria-label="Ordenar">
@@ -430,6 +431,21 @@ table.ptbl{width:100%;border-collapse:collapse;font-size:12px}
 </div>
 
 <!-- MODAL: PRODUTOS -->
+<div class="modal" id="m-view" hidden>
+  <div class="bg" data-close></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="viewTitle">
+    <div class="sh"><div><h3 class="hd" id="viewTitle">Lead</h3><p id="viewSub"></p></div><button type="button" class="ibtn" data-close aria-label="Fechar"><i data-ic="x"></i></button></div>
+    <div class="sb">
+      <div id="viewBody" style="display:grid;gap:12px"></div>
+      <div class="btns">
+        <button type="button" class="btn lg grow" data-close>Fechar</button>
+        <button type="button" class="btn lg grow" id="viewDel" style="color:var(--neg,#dc2626)">Excluir</button>
+        <button type="button" class="btn pri lg grow" id="viewEdit">Editar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="m-prod" hidden>
   <div class="bg" data-close></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="prodTitle">
@@ -574,7 +590,7 @@ const S = {
   cat: { pf: null, pj: null, cost: null, ok: false },
   tipo: (() => { try { const v = localStorage.getItem("crm_tipo"); return v === "PF" || v === "PJ" ? v : "all"; } catch { return "all"; } })(),
   q: "", origem: "", sort: "recentes", onlyDue: false,
-  view: (() => { try { return localStorage.getItem("crm_view") === "list" ? "list" : "board"; } catch { return "board"; } })(),
+  view: (() => { try { return "board"; } catch { return "board"; } })(),
   editing: null, formStage: "novo", dragId: null, authMode: "login", gStep: 0
 };
 let unsubAuth = null, toastTimer = null;
@@ -789,6 +805,7 @@ function renderHeader() {
   $("#whoMail").textContent = mail; $("#whoAv").outerHTML = avatar(mail.split("@")[0] || "?", "sm").replace("<span", '<span id="whoAv"');
   $("#fr").textContent = `${S.leads.length} lead${S.leads.length !== 1 ? "s" : ""}`;
   $("#vBoard").classList.toggle("on", S.view === "board"); $("#vList").classList.toggle("on", S.view === "list");
+  { const g = $("#openGrid"); g.setAttribute("aria-pressed", S.view === "list"); g.title = S.view === "list" ? "Voltar ao Kanban" : "Ver todos os leads (grade)"; g.style.color = S.view === "list" ? "var(--pri, #4f46e5)" : ""; }
   const has = S.leads.length > 0; $("#toolbar").hidden = !has && !S.loading; $("#tipline").hidden = !has;
 }
 function renderSeg() {
@@ -865,6 +882,7 @@ function cardHtml(l) {
       <span class="sp"></span>
       ${l.telefone ? `<button type="button" class="ibtn wa" data-act="zap" title="Chamar no WhatsApp" aria-label="Chamar no WhatsApp">${ic("chat")}</button>` : ""}
       ${l.email ? `<button type="button" class="ibtn" data-act="mail" title="Enviar email" aria-label="Enviar email">${ic("mail")}</button>` : ""}
+      <button type="button" class="ibtn" data-act="view" title="Visualizar" aria-label="Visualizar">${ic("eye")}</button>
       <button type="button" class="ibtn" data-act="edit" title="Editar" aria-label="Editar">${ic("pencil")}</button>
       <button type="button" class="ibtn dng" data-act="del" title="Excluir" aria-label="Excluir">${ic("trash")}</button>
     </div></article>`;
@@ -882,9 +900,11 @@ function boardHtml(list) {
 function listHtml(list) {
   if (S.loading) return `<div class="tw" style="padding:14px;display:grid;gap:8px"><div class="skel" style="height:52px"></div><div class="skel" style="height:52px"></div><div class="skel" style="height:52px"></div></div>`;
   if (!list.length) return `<div class="empty" style="padding:48px">Nenhum lead com esses filtros.</div>`;
-  return `<div class="tw"><table class="tbl"><thead><tr><th>Lead</th><th>Tipo</th><th>Etapa</th><th class="r">Valor</th><th class="r">Lucro</th><th>Retorno</th><th>Origem</th><th></th></tr></thead><tbody>
+  return `<div class="chip" style="margin:0 0 10px;display:inline-block">${list.length} de ${S.leads.length} lead${S.leads.length !== 1 ? "s" : ""} cadastrado${S.leads.length !== 1 ? "s" : ""} · edite ou exclua pelos botões da direita</div><div class="tw"><table class="tbl"><thead><tr><th>Lead</th><th>Telefone</th><th>CPF / CNPJ</th><th>Tipo</th><th>Etapa</th><th class="r">Valor</th><th class="r">Lucro</th><th>Retorno</th><th>Origem</th><th></th></tr></thead><tbody>
     ${list.map(l => `<tr data-id="${esc(l.id)}">
-      <td><div class="who2">${avatar(l.nome, "sm")}<div style="min-width:0"><div class="nm">${esc(l.nome)}</div><div class="emp">${esc(l.empresa || l.telefone || "")}</div></div></div></td>
+      <td><div class="who2">${avatar(l.nome, "sm")}<div style="min-width:0"><div class="nm">${esc(l.nome)}</div><div class="emp">${esc(l.empresa || l.email || "")}</div></div></div></td>
+      <td style="white-space:nowrap">${esc(l.telefone || "—")}</td>
+      <td style="white-space:nowrap">${esc(l.documento || "—")}</td>
       <td><span class="chip tipo-chip ${l.tipo === "PJ" ? "pj" : ""}" title="${TIPOS[l.tipo]}">${l.tipo}</span></td>
       <td><select class="sel sm" data-stage-select aria-label="Etapa de ${esc(l.nome)}" style="border-left:3px solid var(--st-${l.coluna})">${STAGES.map(s => `<option value="${s.id}" ${s.id === l.coluna ? "selected" : ""}>${s.label}</option>`).join("")}</select></td>
       <td class="r"><b class="hd">${brl(l.valor)}</b></td>
@@ -893,6 +913,7 @@ function listHtml(list) {
       <td><span class="chip">${esc(l.origem)}</span></td>
       <td style="white-space:nowrap;text-align:right">
         ${l.telefone ? `<button type="button" class="ibtn wa" data-act="zap" title="WhatsApp" aria-label="WhatsApp">${ic("chat")}</button>` : ""}
+        <button type="button" class="ibtn" data-act="view" title="Visualizar" aria-label="Visualizar">${ic("eye")}</button>
         <button type="button" class="ibtn" data-act="edit" title="Editar" aria-label="Editar">${ic("pencil")}</button>
         <button type="button" class="ibtn dng" data-act="del" title="Excluir" aria-label="Excluir">${ic("trash")}</button></td></tr>`).join("")}
     </tbody></table></div>`;
@@ -933,6 +954,25 @@ function whatsapp(l) {
   const msg = `Olá ${l.nome.trim().split(/\s+/)[0]}! Tudo bem? Aqui é o Paulo Júnior. Queria conversar com você sobre…`;
   window.open(`https://wa.me/${d}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
 }
+let viewId = null;
+function openView(l) {
+  viewId = l.id;
+  const st = STAGES.find(x => x.id === l.coluna), c = calc(l);
+  $("#viewTitle").textContent = l.nome; $("#viewSub").textContent = `${TIPOS[l.tipo]} · ${st ? st.label : ""} · ${l.origem}`;
+  const row = (k, v) => v ? `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line,#e5e7eb)"><span style="color:var(--muted,#6b7280)">${k}</span><b style="text-align:right;word-break:break-word">${v}</b></div>` : "";
+  const itens = (l.items || []).map(i => { const p = PRODUCTS.find(x => x.id === i.k); return `<tr><td>${esc(p ? p.name : i.k)}</td><td class="r">${i.qty}</td><td class="r">${brl(i.price)}</td><td class="r">${brl(i.qty * i.price)}</td><td class="r">${i.cost ? brl(i.qty * (i.price - i.cost)) : "—"}</td></tr>`; }).join("");
+  $("#viewBody").innerHTML =
+    row("Telefone", esc(l.telefone)) + row("E-mail", esc(l.email)) + row("Empresa", esc(l.empresa)) +
+    row(l.tipo === "PJ" ? "CNPJ" : "CPF", esc(l.documento)) + row("Valor", brl(l.valor)) +
+    (c ? row("Custo de compra", brl(c.cus)) + row("Lucro real", `<span class="${c.luc < 0 ? "neg" : "pos"}">${brl(c.luc)} (${pct(c.mar)})</span>`) : "") +
+    row("Próximo retorno", l.proximo ? fmtDate(l.proximo) : "") +
+    row("Cadastrado em", l.criadoEm ? new Date(l.criadoEm).toLocaleString("pt-BR") : "") +
+    (itens ? `<div class="tw"><table class="tbl"><thead><tr><th>Produto</th><th class="r">Qtd</th><th class="r">Preço</th><th class="r">Total</th><th class="r">Lucro</th></tr></thead><tbody>${itens}</tbody></table></div>` : "") +
+    (l.notas ? `<div style="white-space:pre-wrap;background:var(--bg2,#f3f4f6);border-radius:10px;padding:10px 12px">${esc(l.notas)}</div>` : "");
+  openModal("view");
+}
+$("#viewEdit").onclick = () => { const l = S.leads.find(x => x.id === viewId); closeModal("view"); if (l) openLead(l); };
+$("#viewDel").onclick = () => { const id = viewId; closeModal("view"); if (id) removeLead(id); };
 async function removeLead(id) {
   const l = S.leads.find(x => x.id === id); if (!l) return;
   const { error } = await S.sb.from("crm_leads").delete().eq("id", id);
@@ -953,10 +993,10 @@ content.addEventListener("click", e => {
     if (b.dataset.act === "new") return openLead(null);
     if (b.dataset.act === "guide") { S.gStep = 0; renderGuide(); return openModal("guide"); }
     const id = b.closest("[data-id]")?.dataset.id, l = S.leads.find(x => x.id === id); if (!l) return;
-    return ({ left: () => step(id, -1), right: () => step(id, 1), zap: () => whatsapp(l), mail: () => { location.href = "mailto:" + l.email; }, edit: () => openLead(l), del: () => removeLead(id) })[b.dataset.act]?.();
+    return ({ left: () => step(id, -1), right: () => step(id, 1), zap: () => whatsapp(l), mail: () => { location.href = "mailto:" + l.email; }, view: () => openView(l), edit: () => openLead(l), del: () => removeLead(id) })[b.dataset.act]?.();
   }
   if (e.target.closest("select")) return;
-  const el = e.target.closest("[data-id]"); if (el) { const l = S.leads.find(x => x.id === el.dataset.id); if (l) openLead(l); }
+  const el = e.target.closest("[data-id]"); if (el) { const l = S.leads.find(x => x.id === el.dataset.id); if (l) (S.view === "list" ? openView(l) : openLead(l)); }
 });
 content.addEventListener("change", e => {
   const s = e.target.closest("[data-stage-select]"); if (!s) return;
@@ -981,7 +1021,8 @@ content.addEventListener("drop", e => {
 let qTimer; $("#q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value; renderContent(); }, 120); });
 $("#fOrigem").onchange = e => { S.origem = e.target.value; renderContent(); };
 $("#fSort").onchange = e => { S.sort = e.target.value; renderContent(); };
-const setView = v => { S.view = v; try { localStorage.setItem("crm_view", v); } catch { } renderHeader(); renderContent(); };
+const setView = v => { S.view = v; renderHeader(); renderContent(); };
+$("#openGrid").onclick = () => setView(S.view === "list" ? "board" : "list");
 $("#vBoard").onclick = () => setView("board"); $("#vList").onclick = () => setView("list");
 $("#exportCsv").onclick = () => {
   const rows = filtered(); if (!rows.length) return toast("Não há leads para exportar");
