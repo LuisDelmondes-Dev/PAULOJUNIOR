@@ -267,7 +267,18 @@ footer.foot{margin:12px 0 32px;font-size:12px;color:var(--mu);display:flex;justi
 .pcard .ps{font-size:11px;color:var(--mu);margin-top:4px;line-height:1.4}
 .ptw{overflow:auto;border:1px solid var(--bd);border-radius:12px}
 table.ptbl{width:100%;border-collapse:collapse;font-size:12px}
-@media(max-width:520px){table.ptbl{font-size:11px}.ptbl th,.ptbl td{padding:7px 5px}}
+@media(max-width:640px){
+table.ptbl,.ptbl tbody,.ptbl tfoot,.ptbl tr{display:block;width:100%}
+.ptbl thead{display:none}
+.ptbl tr{display:grid;grid-template-columns:.5fr 1.15fr 1.15fr 1.15fr .95fr;gap:2px 2px;padding:9px 8px;border-bottom:1px solid var(--bd)}
+.ptbl tbody tr:last-child{border-bottom:1px solid var(--bd)}
+.ptbl tfoot tr{background:var(--s2);border-bottom:0}
+.ptw .ptbl td,.ptw .ptbl tfoot td{display:block;padding:0!important;border:0!important;text-align:left!important;white-space:nowrap;font-size:11px;min-width:0}
+.ptw .ptbl td:first-child{grid-column:1/-1;font-weight:600;white-space:normal;padding-bottom:3px!important}
+.ptbl td[data-l]::before{content:attr(data-l);display:block;font-size:9.5px;font-weight:500;color:var(--mu);margin-bottom:1px}
+.ptw{overflow:visible}
+}
+@media(max-width:380px){.ptw .ptbl td,.ptw .ptbl tfoot td{font-size:10px}.ptbl tr{padding:9px 6px}}
 .ptbl th{text-align:right;font-weight:500;color:var(--mu);padding:8px 10px;background:var(--s2);border-bottom:1px solid var(--bd)}
 .ptbl th:first-child,.ptbl td:first-child{text-align:left}
 .ptbl td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd)}
@@ -929,7 +940,7 @@ function renderProfit() {
   for (const l of tipoList()) if (l.coluna === "ganho") for (const i of l.items) { const x = per[i.k]; if (x) { x.qty += i.qty; x.rec += i.qty * i.price; x.cus += i.qty * i.cost; } }
   const rows = PRODUCTS.filter(p => per[p.id].qty);
   const tot = rows.reduce((o, p) => ({ qty: o.qty + per[p.id].qty, rec: o.rec + per[p.id].rec, cus: o.cus + per[p.id].cus }), { qty: 0, rec: 0, cus: 0 });
-  const tr = (n, x, f) => `<tr><td>${n}</td><td>${x.qty}</td><td>${brl0(x.rec)}</td><td>${brl0(x.cus)}</td><td class="${x.rec - x.cus < 0 ? "neg" : "pos"}"><b>${brl0(x.rec - x.cus)}</b></td><td>${x.rec ? pct((x.rec - x.cus) / x.rec * 100) : "—"}</td></tr>`;
+  const tr = (n, x, f) => `<tr><td>${n}</td><td data-l="Qtd">${x.qty}</td><td data-l="Receita">${brl0(x.rec)}</td><td data-l="Compra">${brl0(x.cus)}</td><td data-l="Lucro" class="${x.rec - x.cus < 0 ? "neg" : "pos"}"><b>${brl0(x.rec - x.cus)}</b></td><td data-l="Margem">${x.rec ? pct((x.rec - x.cus) / x.rec * 100) : "—"}</td></tr>`;
   const noCost = S.cat.ok && S.cat.cost && PRODUCTS.every(p => !Number(S.cat.cost[p.id]));
   box.innerHTML = `<div class="fh">Lucro real dos negócios ganhos ${info("Lucro = preço de venda menos valor de compra, multiplicado pela quantidade. Os valores ficam gravados em cada negócio no momento em que ele é salvo, então mudar um preço depois não altera vendas antigas.")}</div>
     <div class="pgrid"><div class="pseg">${card("PF")}${card("PJ")}</div>
